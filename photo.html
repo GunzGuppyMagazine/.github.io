@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Photo - GunzGuppyMagazine</title>
+  <style>
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+    }
+    body {
+      background: #fff;
+      color: #111;
+      font-family: 'OCR A Std', monospace, 'Courier New', Courier;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      padding: 1.2rem 1.6rem;
+      overflow-y: scroll;
+    }
+    h1 {
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #111;
+      padding-bottom: 0.4rem;
+      font-size: 1.2rem;
+      letter-spacing: 0.08em;
+    }
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill,minmax(120px,1fr));
+      gap: 12px;
+    }
+    #gallery img {
+      width: 100%;
+      height: auto;
+      cursor: pointer;
+      border: 1px solid #111;
+      transition: transform 0.3s ease;
+      object-fit: cover;
+      aspect-ratio: 4 / 3;
+    }
+    #gallery img:hover {
+      transform: scale(1.05);
+      border-color: #ff5500;
+    }
+    /* モーダル表示用 */
+    #modalOverlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #modalOverlay img {
+      max-width: 90vw;
+      max-height: 90vh;
+      box-shadow: 0 0 12px #ff5500;
+      border: 4px solid #ff5500;
+      border-radius: 6px;
+    }
+    #modalOverlay:active {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>GunzGuppyMagazine / Photo</h1>
+
+  <div id="gallery"></div>
+
+  <div id="modalOverlay" onclick="this.style.display='none'">
+    <img id="modalImage" src="" alt="Enlarged photo" />
+  </div>
+
+  <script>
+    // coinphotoフォルダ内の画像を自動で読み込み（連番想定）
+    const gallery = document.getElementById('gallery');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalImage = document.getElementById('modalImage');
+
+    // 画像ファイル名リスト（例としてphoto1.jpg〜photo10.jpgまで）
+    // 実際は画像数に合わせて変更してください
+    const imageFiles = [];
+    for(let i=1; i<=10; i++) {
+      imageFiles.push(`photo${i}.jpg`);
+    }
+
+    imageFiles.forEach(src => {
+      const img = document.createElement('img');
+      img.src = `coinphoto/${src}`;
+      img.alt = src;
+      img.loading = "lazy";
+      img.addEventListener('error', () => {
+        console.error(`画像の読み込みに失敗しました: coinphoto/${src}`);
+      });
+      img.addEventListener('click', () => {
+        modalImage.src = img.src;
+        modalOverlay.style.display = 'flex';
+      });
+      gallery.appendChild(img);
+    });
+  </script>
+</body>
+</html>
