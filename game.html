@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Mini Shooting Game - GunzGuppyMagazine</title>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    font-family: Arial, sans-serif;
+    color: #fff;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+  }
+  nav {
+    margin: 10px 0;
+  }
+  nav a {
+    color: #fff;
+    text-decoration: none;
+    margin: 0 1rem;
+    font-weight: bold;
+  }
+  nav a:hover {
+    text-decoration: underline;
+  }
+  #gameCanvas {
+    background: #111;
+    border: 2px solid #fff;
+    display: block;
+    max-width: 100vw;
+    height: auto;
+  }
+  #score {
+    margin-top: 10px;
+    font-size: 18px;
+  }
+  #gameOver {
+    font-size: 32px;
+    color: red;
+    margin: 10px 0;
+    display: none;
+  }
+  #startBtn {
+    font-size: 20px;
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+  }
+  /* モバイル用操作パネル */
+  #controls {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0;
+    gap: 20px;
+  }
+  .btn {
+    width: 60px;
+    height: 60px;
+    background: #222;
+    border: 2px solid #fff;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 24px;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  .btn:active {
+    background: #555;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="photo.html">Photo</a>
+  <a href="sound.html">Sound</a>
+  <a href="game.html">Game</a>
+  <a href="index.html">Home</a>
+</nav>
+
+<button id="startBtn">Start Game</button>
+<canvas id="gameCanvas" width="400" height="600" style="display:none;"></canvas>
+<div id="score"></div>
+<div id="gameOver">Game Over</div>
+
+<!-- モバイル操作パネル -->
+<div id="controls" style="display:none;">
+  <button id="leftBtn" class="btn">◀</button>
+  <button id="shootBtn" class="btn">●</button>
+  <button id="rightBtn" class="btn">▶</button>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreElem = document.getElementById('score');
+  const gameOverElem = document.getElementById('gameOver');
+  const startBtn = document.getElementById('startBtn');
+  const controls = document.getElementById('controls');
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+  const shootBtn = document.getElementById('shootBtn');
+
+  const WIDTH = canvas.width;
+  const HEIGHT = canvas.height;
+
+  // 画像を読み込む（ここでテクスチャ差し替え可）
+  const playerImg = new Image();
+  playerImg.src = 'player.png'; // ここに味方画像パスをセットしてください
+
+  const enemyImg = new Image();
+  enemyImg.src = 'enemy.png'; // ここに敵画像パスをセットしてください
+
+  // 状態変数
+  let leftPressed = false;
+  let rightPressed = false;
+  let spacePressed = false;
+  let gameOver = false;
+  let frameCount = 0;
+  let score = 0;
+  let enemySpawnTimer = 0;
+  const enemySpawnInterval = 60;
+  const enemySpeed = 2;
+
+  const player = {
+    x: WIDTH / 2 - 15,
+    y: HEIGHT - 50,
+    width: 30,
+    height: 30,
+    speed: 5,
+    bullets: []
+  };
+
+  class Bullet {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.width = 5;
+      this.height = 10;
+      this.speed = 7;
+      this.active = true;
+    }
+    update() {
+      this.y -= this.speed;
+      if (this.y < -this.height) this.active = false;
+    }
+    draw() {
+      ctx.fillStyle = '#0f0';
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+  }
+
+  class Enemy {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.width = 30;
+      this.height = 30;
+      this.speed = enemySpeed;
+      this.active = true;
+    }
+    update() {
+      this.y += this.speed;
+      if (this.y > HEIGHT) this.active = false;
+    }
+    draw() {
+      if(enemyImg.complete){
+        ctx.drawImage(enemyImg, this.x, this.y, this.width, this.height);
+      } else {
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+    }
+  }
+
+  function resetGame() {
+    player.x = WIDTH / 2 - player.width / 2;
+    player.bullets = [];
+    enemies = [];
+    enemySpawnTimer = 0;
+    score = 0;
+    gameOver = false;
+    frameCount = 0;
+    gameOverElem.style.display = 'none';
+    scoreElem.textContent = `Score: ${score}`;
+  }
+
+  let enemies = [];
+
+  function gameLoop() {
+    if (gameOver) return;
+
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    // 移動処理
+    if (leftPressed) player.x -= player.speed;
+    if (rightPressed) player.x += player.speed;
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > WIDTH) player.x = WIDTH - player.width;
+
+    // 発射処理（連射制限）
+    if (spacePressed && frameCount % 10 === 0) {
+      player.bullets.push(new Bullet(player.x + player.width / 2 - 2.5, player.y));
+    }
+
+    // 弾の更新・描画
+    player.bullets.forEach(b => b.update());
+    player.bullets = player.bullets.filter(b => b.active);
+    player.bullets.forEach(b => b.draw());
+
+    // 敵生成
+    enemySpawnTimer++;
+    if (enemySpawnTimer >= enemySpawnInterval) {
+      enemySpawnTimer = 0;
+      const ex = Math.random() * (WIDTH - 30);
+      enemies.push(new Enemy(ex, -30));
+    }
+
+    // 敵更新・描画
+    enemies.forEach(e => e.update());
+    enemies = enemies.filter(e => e.active);
+    enemies.forEach(e => e.draw());
+
+    // 当たり判定
+    player.bullets.forEach(b => {
+      enemies.forEach(e => {
+        if (
+          b.x < e.x + e.width &&
+          b.x + b.width > e.x &&
+          b.y < e.y + e.height &&
+          b.y + b.height > e.y
+        ) {
+          b.active = false;
+          e.active = false;
+          score++;
+          scoreElem.textContent = `Score: ${score}`;
+        }
+      });
+    });
+
+    for (const e of enemies) {
+      if (
+        player.x < e.x + e.width &&
+        player.x + player.width > e.x &&
+        player.y < e.y + e.height &&
+        player.y + player.height > e.y
+      ) {
+        gameOver = true;
+        gameOverElem.style.display = 'block';
+        startBtn.style.display = 'inline-block';
+        controls.style.display = 'none';
+        break;
+      }
+    }
+
+    // プレイヤー描画（画像がなければ四角）
+    if(playerImg.complete){
+      ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+    } else {
+      ctx.fillStyle = '#0af';
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+    }
+
+    frameCount++;
+    if (!gameOver) requestAnimationFrame(gameLoop);
+  }
+
+  // キーボード操作
+  window.addEventListener('keydown', e => {
+    if (e.code === 'ArrowLeft') leftPressed = true;
+    if (e.code === 'ArrowRight') rightPressed = true;
+    if (e.code === 'Space') spacePressed = true;
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'ArrowLeft') leftPressed = false;
+    if (e.code === 'ArrowRight') rightPressed = false;
+    if (e.code === 'Space') spacePressed = false;
+  });
+
+  // モバイルボタン操作
+  leftBtn.addEventListener('touchstart', e => { e.preventDefault(); leftPressed = true; });
+  leftBtn.addEventListener('touchend', e => { e.preventDefault(); leftPressed = false; });
+  rightBtn.addEventListener('touchstart', e => { e.preventDefault(); rightPressed = true; });
+  rightBtn.addEventListener('touchend', e => { e.preventDefault(); rightPressed = false; });
+  shootBtn.addEventListener('touchstart', e => { e.preventDefault(); spacePressed = true; });
+  shootBtn.addEventListener('touchend', e => { e.preventDefault(); spacePressed = false; });
+
+  // 開始ボタン
+  startBtn.addEventListener('click', () => {
+    startBtn.style.display = 'none';
+    canvas.style.display = 'block';
+    controls.style.display = 'flex';
+    resetGame();
+    requestAnimationFrame(gameLoop);
+  });
+})();
+</script>
+
+</body>
+</html>
