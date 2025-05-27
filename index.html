@@ -15,7 +15,7 @@
     font-family: 'OCR A Std', monospace, 'Courier New', Courier;
     font-size: 0.9rem;
     height: 100vh;
-    overflow: hidden;
+    overflow: auto; /* スクロール可能に */
   }
   #logo {
     position: fixed;
@@ -53,6 +53,7 @@
     flex-direction: column;
     align-items: center;
     gap: 1.2rem;
+    z-index: 15;
   }
   #vipForm input, #vipForm button, input[type="number"], input[type="text"], input[type="file"], button.add-coin {
     font-family: 'OCR A Std', monospace, 'Courier New', Courier;
@@ -79,7 +80,7 @@
     display: none;
     padding: 1rem 2rem;
     max-width: 960px;
-    margin: 0 auto;
+    margin: 0 auto 2rem auto;
   }
   #closeButton {
     background: none; border: 1px solid #111; color: #111; font-size: 0.9rem; padding: 0.25rem 0.6rem; cursor: pointer; margin-bottom: 1rem; user-select: none;
@@ -99,10 +100,55 @@
     margin-top: 0.6rem; font-size: 0.9rem; padding: 0.35rem 0.7rem; border: 1px solid #111; background: none; cursor: pointer;
   }
   button.add-coin:hover { background: #111; color: #fff; }
+
+  /* メニューバー */
+  #menuBar {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 20;
+    user-select: none;
+  }
+  #menuBar a {
+    margin-left: 1rem;
+    text-decoration: none;
+    color: #111;
+    font-weight: bold;
+    font-family: 'OCR A Std', monospace, 'Courier New', Courier;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+  }
+  #menuBar a:first-child {
+    margin-left: 0;
+  }
+  #menuBar a:hover {
+    color: #000;
+    text-decoration: underline;
+  }
+
+  /* モバイル対応：スクロール可能に */
+  @media (max-width: 600px) {
+    #map {
+      height: 300px;
+    }
+    #vipInputContainer {
+      max-width: 90vw;
+      padding: 1.5rem 2rem;
+    }
+    #mainContent {
+      padding: 1rem 1rem 2rem 1rem;
+    }
+  }
 </style>
 </head>
 <body>
-<img id="logo" src="コイン裏 (1).svg" alt="GunzGuppy Logo" />
+<!-- メニューバーは常に表示 -->
+<nav id="menuBar">
+  <a href="photo.html" target="_blank" rel="noopener">Photo</a>
+  <a href="sound.html" target="_blank" rel="noopener">Sound</a>
+</nav>
+
+<img id="logo" src="coin.svg" alt="GunzGuppy Logo" />
 <div id="vipInputContainer">
   <form id="vipForm" onsubmit="return checkVipCode(event)">
     <input type="text" id="vipCode" placeholder="ENTER" autocomplete="off" />
@@ -128,83 +174,102 @@
     <button class="add-coin" onclick="addCoinMarker()">ADD</button>
   </div>
 </div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
   const VIP_CODE = "ggm";
   let map;
   let markers = [];
+
   window.onload = () => {
     document.getElementById('vipCode').focus();
     document.getElementById('logo').addEventListener('click', () => {
       window.open('https://www.instagram.com/gunz_guppy_magazine', '_blank', 'noopener');
     });
+
+    // ハッシュが #main のときは地図画面を直接表示
+    if (window.location.hash === '#main') {
+      showMainContent();
+    }
   };
+
   function checkVipCode(e) {
     e.preventDefault();
     const input = document.getElementById('vipCode').value.trim().toLowerCase();
-    if (input === VIP_CODE) showMainContent();
-    else {
+    if (input === VIP_CODE) {
+      showMainContent();
+    } else {
       alert("Incorrect VIP code.");
       document.getElementById('vipCode').value = "";
       document.getElementById('vipCode').focus();
     }
     return false;
   }
+
   function showMainContent() {
     document.getElementById('vipInputContainer').style.display = "none";
     document.getElementById('mainContent').style.display = "block";
     document.getElementById('noiseOverlay').style.opacity = "0.12";
+    // メニューバーは常に表示しているので操作不要
     initMap();
     document.getElementById('formContainer').style.display = "block";
+    // ロゴは地図画面で非表示にしたいならここで消す
+    document.getElementById('logo').style.display = "none";
   }
+
   function goBackToTitle() {
     document.getElementById('vipInputContainer').style.display = "flex";
     document.getElementById('mainContent').style.display = "none";
     document.getElementById('noiseOverlay').style.opacity = "0";
-    document.getElementById('vipCode').value = "";
-    document.getElementById('vipCode').focus();
-    document.getElementById('formContainer').style.display = "none";
+    // メニューバーは常に表示なので非表示処理は不要
+    document.getElementById('logo').style.display = "block";
+    window.location.hash = "";
+  }
+
+  function initMap() {
     if (map) {
       map.remove();
-      map = null;
       markers = [];
     }
-  }
-  function initMap() {
-    if (map) return;
-    map = L.map('map').setView([35.681236, 139.767125], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    map = L.map('map').setView([35.0116, 135.7681], 14);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
   }
+
   function addCoinMarker() {
     const lat = parseFloat(document.getElementById('lat').value);
     const lng = parseFloat(document.getElementById('lng').value);
-    const imageInput = document.getElementById('image');
     const description = document.getElementById('description').value.trim();
+    const imageInput = document.getElementById('image');
+
     if (isNaN(lat) || isNaN(lng)) {
-      alert('Please enter valid latitude and longitude.');
+      alert("Please enter valid latitude and longitude.");
       return;
     }
-    let imgURL = "";
-    if (imageInput.files && imageInput.files[0]) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        imgURL = e.target.result;
-        const popupContent = `<div><strong>${description}</strong><br/><img src="${imgURL}" style="width:200px;"></div>`;
-        const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
-        marker.on("click", () => marker.openPopup());
-        markers.push(marker);
-      };
-      reader.readAsDataURL(imageInput.files[0]);
-    } else {
-      const marker = L.marker([lat, lng]).addTo(map).bindPopup(description || "No description");
-      markers.push(marker);
+    if (!imageInput.files || imageInput.files.length === 0) {
+      alert("Please select a photo.");
+      return;
     }
-    document.getElementById('lat').value = '';
-    document.getElementById('lng').value = '';
-    document.getElementById('description').value = '';
-    document.getElementById('image').value = '';
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imgUrl = e.target.result;
+      const marker = L.marker([lat, lng]).addTo(map);
+      marker.bindPopup(`
+        <div style="max-width:150px;">
+          <img src="${imgUrl}" alt="Coin Photo" style="width:100%;height:auto;"/>
+          <p>${description}</p>
+        </div>
+      `);
+      markers.push(marker);
+      // クリア
+      document.getElementById('lat').value = "";
+      document.getElementById('lng').value = "";
+      document.getElementById('description').value = "";
+      imageInput.value = "";
+    };
+    reader.readAsDataURL(imageInput.files[0]);
   }
 </script>
 </body>
